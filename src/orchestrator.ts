@@ -30,6 +30,7 @@ import {
   DEFAULT_PROVIDER,
   DEFAULT_OLLAMA_URL,
   DEFAULT_OPENWEBUI_URL,
+  MEMORY_FILE,
   buildTriggerPattern,
   type Provider,
 } from './config.js';
@@ -43,7 +44,7 @@ import {
   saveTask,
   clearGroupMessages,
 } from './db.js';
-import { readGroupFile } from './storage.js';
+import { readGroupFile, writeGroupFile, groupFileExists } from './storage.js';
 import { encryptValue, decryptValue } from './crypto.js';
 import { BrowserChatChannel } from './channels/browser-chat.js';
 import { TelegramChannel } from './channels/telegram.js';
@@ -125,6 +126,9 @@ export class Orchestrator {
   async init(): Promise<void> {
     // Open database
     await openDatabase();
+
+    // Ensure memory file exists for the default group
+    await this.ensureMemoryFile(DEFAULT_GROUP_ID);
 
     // Load config
     this.assistantName = (await getConfig(CONFIG_KEYS.ASSISTANT_NAME)) || ASSISTANT_NAME;
@@ -212,7 +216,34 @@ this.router = new Router(this.browserChat, this.telegram, this.whatsapp);
       // Display handled via events.emit('message', ...)
     });
 
+    // Ensure memory file exists for default group
+    await this.ensureMemoryFile(DEFAULT_GROUP_ID);
+
     this.events.emit('ready', undefined);
+  }
+
+  /**
+   * Ensure the memory file exists for a group.
+   */
+  private async ensureMemoryFile(groupId: string): Promise<void> {
+    try {
+      const exists = await groupFileExists(groupId, MEMORY_FILE);
+      if (!exists) {
+        const defaultMemory = `# Memory
+
+This file stores persistent context that the assistant remembers across conversations.
+
+## User Preferences
+<!-- Add preferences here -->
+
+## Notes
+<!-- Add important notes here -->
+`;
+        await writeGroupFile(groupId, MEMORY_FILE, defaultMemory);
+      }
+    } catch (err) {
+      console.warn('Failed to ensure memory file:', err);
+    }
   }
 
   /**
@@ -525,7 +556,7 @@ this.router = new Router(this.browserChat, this.telegram, this.whatsapp);
     // Load group memory
     let memory = '';
     try {
-      memory = await readGroupFile(groupId, 'CLAUDE.md');
+      memory = await readGroupFile(groupId, MEMORY_FILE);
     } catch {
       // No memory file yet
     }
@@ -656,7 +687,7 @@ this.router = new Router(this.browserChat, this.telegram, this.whatsapp);
     // Load group memory
     let memory = '';
     try {
-      memory = await readGroupFile(groupId, 'CLAUDE.md');
+      memory = await readGroupFile(groupId, MEMORY_FILE);
     } catch {
       // No memory file yet — that's fine
     }
@@ -808,7 +839,8 @@ function buildSystemPrompt(assistantName: string, memory: string): string {
     '- **javascript**: Execute JavaScript code. Lighter than bash — no VM boot needed. Use for calculations, data transforms.',
     '- **read_file** / **write_file** / **list_files**: Manage files in the group workspace (persisted in browser storage).',
     '- **fetch_url**: Make HTTP requests (subject to CORS).',
-    '- **update_memory**: Persist important context to CLAUDE.md — loaded on every conversation.',
+    '- **read_memory**: Check current memory content before updating.',
+    '- **update_memory**: Persist important context to memory.md — loaded on every conversation. Use mode="append" to add or mode="replace" to overwrite.',
     '- **create_task**: Schedule recurring tasks with cron expressions.',
     '',
     'Guidelines:',

@@ -113,9 +113,19 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
   },
   {
+    name: 'read_memory',
+    description:
+      'Read the current content of the memory.md file for this group. ' +
+      'Use this to check what the agent currently remembers before updating.',
+    input_schema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
     name: 'update_memory',
     description:
-      'Update the CLAUDE.md memory file for this group. ' +
+      'Update the memory.md file for this group. ' +
       'Use this to persist important context, user preferences, project state, ' +
       'and anything the agent should remember across conversations. ' +
       'This file is loaded as system context on every invocation.',
@@ -124,7 +134,12 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       properties: {
         content: {
           type: 'string',
-          description: 'New content for the CLAUDE.md memory file',
+          description: 'Content to write to the memory file',
+        },
+        mode: {
+          type: 'string',
+          enum: ['replace', 'append'],
+          description: 'How to update memory: "replace" overwrites entirely, "append" adds to the end (default: replace)',
         },
       },
       required: ['content'],

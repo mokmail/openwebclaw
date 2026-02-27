@@ -10,7 +10,7 @@ import type {
   ThinkingLogEntry,
 } from '../types.js';
 import type { Orchestrator } from '../orchestrator.js';
-import { DEFAULT_GROUP_ID, DEFAULT_MODEL, DEFAULT_PROVIDER, DEFAULT_OLLAMA_URL } from '../config.js';
+import { DEFAULT_GROUP_ID, DEFAULT_MODEL, DEFAULT_PROVIDER, DEFAULT_OLLAMA_URL, DEFAULT_OPENWEBUI_URL } from '../config.js';
 import { getRecentMessages } from '../db.js';
 
 interface OrchestratorStoreState {
@@ -53,6 +53,7 @@ export let getOrchestrator: () => Orchestrator = () => {
       getModel: () => DEFAULT_MODEL,
       getProvider: () => DEFAULT_PROVIDER,
       getOllamaUrl: () => DEFAULT_OLLAMA_URL,
+      getOpenWebUIUrl: () => DEFAULT_OPENWEBUI_URL,
       fetchOllamaModels: async () => [],
     };
     return stub as Orchestrator;

@@ -14,37 +14,37 @@ import { ContextBar } from './ContextBar.js';
 import { ChatActions } from './ChatActions.js';
 
 const LineGraphIcon = ({ className }: { className?: string }) => (
-    <svg
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-        aria-hidden="true"
-    >
-        <path d="M3 3v18h18" />
-        <path d="m7 15 4-4 3 3 5-7" />
-    </svg>
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    aria-hidden="true"
+  >
+    <path d="M3 3v18h18" />
+    <path d="m7 15 4-4 3 3 5-7" />
+  </svg>
 );
 
 const PROMPT_STARTERS = [
-    {
-        icon: Globe,
-        title: 'Latest news',
-        prompt: 'Get me the top trending posts from HackerNews.',
-    },
-    {
-        icon: LineGraphIcon,
-        title: 'Generate a report',
-        prompt: 'Show me a graph with the Ethereum price over the last 6 months.',
-    },
-    {
-        icon: MapPin,
-        title: 'Map viewer',
-        prompt: 'Generate an interactive map viewer with the top locations to visit in Seattle.',
-    },
+  {
+    icon: Globe,
+    title: 'Latest news',
+    prompt: 'Get me the top trending posts from HackerNews.',
+  },
+  {
+    icon: LineGraphIcon,
+    title: 'Generate a report',
+    prompt: 'Show me a graph with the Ethereum price over the last 6 months.',
+  },
+  {
+    icon: MapPin,
+    title: 'Vienna Navigator',
+    prompt: 'Generate an interactive map viewer with the top locations to visit in Vienna / Austria. use tailwind styling , make the app design flatt and fancy',
+  },
 ];
 
 const PIPELINE_STEPS = [

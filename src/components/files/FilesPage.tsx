@@ -2,14 +2,14 @@
 // OpenWebClaw — Files page
 // ---------------------------------------------------------------------------
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import {
   Folder, Globe, Image, FileText, FileCode, FileJson, FileSpreadsheet,
-  File, Home, Search, Download, Trash2, X, FolderOpen,
+  File, Home, Search, Download, Trash2, X, FolderOpen, Upload, Plus,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { DEFAULT_GROUP_ID } from '../../config.js';
-import { listGroupFiles, readGroupFile, deleteGroupFile } from '../../storage.js';
+import { listGroupFiles, readGroupFile, deleteGroupFile, writeGroupFile } from '../../storage.js';
 import { FileViewerModal } from './FileViewerModal.js';
 
 interface FileEntry {
@@ -40,6 +40,9 @@ export function FilesPage() {
   const [previewContent, setPreviewContent] = useState<string | null>(null);
   const [viewerFile, setViewerFile] = useState<{ name: string; content: string } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const groupId = DEFAULT_GROUP_ID;
   const currentDir = path.length > 0 ? path.join('/') : '.';
@@ -109,10 +112,109 @@ export function FilesPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    setUploadError(null);
+
+    try {
+      for (const file of Array.from(files)) {
+        const content = await readFileContent(file);
+        const filePath = path.length > 0 ? `${path.join('/')}/${file.name}` : file.name;
+        await writeGroupFile(groupId, filePath, content);
+      }
+      loadEntries();
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'Failed to upload file');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  }
+
+  function handleDrop(event: React.DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+      setUploading(true);
+      setUploadError(null);
+
+      (async () => {
+        try {
+          for (const file of Array.from(files)) {
+            const content = await readFileContent(file);
+            const filePath = path.length > 0 ? `${path.join('/')}/${file.name}` : file.name;
+            await writeGroupFile(groupId, filePath, content);
+          }
+          loadEntries();
+        } catch (err) {
+          setUploadError(err instanceof Error ? err.message : 'Failed to upload file');
+        } finally {
+          setUploading(false);
+        }
+      })();
+    }
+  }
+
+  async function readFileContent(file: File): Promise<string> {
+    const isText = isTextFile(file.name);
+
+    if (isText) {
+      return await file.text();
+    }
+
+    // For binary files, convert to base64 data URL
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          resolve(reader.result);
+        } else {
+          reject(new Error('Failed to read file'));
+        }
+      };
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function isTextFile(filename: string): boolean {
+    const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+    const textExtensions = [
+      'txt', 'md', 'markdown', 'json', 'js', 'ts', 'jsx', 'tsx', 'mjs', 'cjs',
+      'css', 'scss', 'sass', 'less', 'html', 'htm', 'xml', 'svg',
+      'yaml', 'yml', 'toml', 'ini', 'cfg', 'conf', 'env',
+      'sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd',
+      'py', 'rb', 'go', 'rs', 'java', 'kt', 'swift', 'c', 'cpp', 'h', 'hpp', 'cs', 'php',
+      'sql', 'csv', 'tsv', 'log',
+      'vue', 'svelte', 'astro', 'graphql', 'gql', 'proto', 'thrift',
+      'dockerfile', 'makefile', 'rakefile', 'gemfile', 'procfile',
+      'gitignore', 'dockerignore', 'editorconfig', 'eslintrc', 'prettierrc',
+      'license', 'readme', 'changelog', 'authors', 'contributors',
+    ];
+    return textExtensions.includes(ext) ||
+           filename.toLowerCase().startsWith('readme') ||
+           filename.toLowerCase().startsWith('license') ||
+           filename.toLowerCase().startsWith('.env') ||
+           filename.toLowerCase() === 'dockerfile' ||
+           filename.toLowerCase() === 'makefile';
+  }
+
+  function handleDragOver(event: React.DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
   return (
     <div className="flex flex-col h-full">
-      {/* Breadcrumbs */}
-      <div className="px-4 py-2 bg-base-200 border-b border-base-300">
+      {/* Breadcrumbs & Upload */}
+      <div className="px-4 py-2 bg-base-200 border-b border-base-300 flex items-center justify-between">
         <div className="breadcrumbs text-sm">
           <ul>
             <li>
@@ -135,15 +237,50 @@ export function FilesPage() {
             ))}
           </ul>
         </div>
+        <div className="flex items-center gap-2">
+          {uploadError && (
+            <span className="text-error text-sm">{uploadError}</span>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleUpload}
+          />
+          <button
+            className="btn btn-sm btn-outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? (
+              <span className="loading loading-spinner loading-xs" />
+            ) : (
+              <Upload className="w-4 h-4" />
+            )}
+            Upload
+          </button>
+        </div>
       </div>
 
       {/* Content area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div
+        className="flex-1 flex overflow-hidden"
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
         {/* File list */}
         <div className="flex-1 overflow-y-auto p-2">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <span className="loading loading-spinner loading-md" />
+            </div>
+          ) : uploading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <span className="loading loading-spinner loading-lg" />
+                <p className="mt-2 text-sm opacity-60">Uploading files...</p>
+              </div>
             </div>
           ) : error ? (
             <div role="alert" className="alert alert-error m-4">{error}</div>
@@ -151,9 +288,16 @@ export function FilesPage() {
             <div className="hero py-12">
               <div className="hero-content text-center">
                 <div>
-                  <FolderOpen className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  <p className="font-medium">No files yet</p>
-                  <p className="text-sm opacity-60 mt-1">Files created by the assistant will appear here</p>
+                  <FolderOpen className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                  <p className="font-medium text-lg">No files yet</p>
+                  <p className="text-sm opacity-60 mt-2">Upload files or ask the assistant to create them</p>
+                  <button
+                    className="btn btn-outline btn-sm mt-4"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Upload className="w-4 h-4" />
+                    Upload Files
+                  </button>
                 </div>
               </div>
             </div>

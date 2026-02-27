@@ -21,7 +21,7 @@ if ('serviceWorker' in navigator) {
 // the imported binding, which violates ES module semantics and breaks
 // esbuild. Instead we expose a setter in the store module.
 import { getOrchestrator, setGetOrchestrator } from './stores/orchestrator-store.js';
-import { DEFAULT_MODEL, DEFAULT_PROVIDER, DEFAULT_OLLAMA_URL } from './config.js';
+import { DEFAULT_MODEL, DEFAULT_PROVIDER, DEFAULT_OLLAMA_URL, DEFAULT_OPENWEBUI_URL } from './config.js';
 
 {
   const orig = getOrchestrator;
@@ -39,6 +39,7 @@ import { DEFAULT_MODEL, DEFAULT_PROVIDER, DEFAULT_OLLAMA_URL } from './config.js
         getModel: () => DEFAULT_MODEL,
         getProvider: () => DEFAULT_PROVIDER,
         getOllamaUrl: () => DEFAULT_OLLAMA_URL,
+        getOpenWebUIUrl: () => DEFAULT_OPENWEBUI_URL,
         fetchOllamaModels: async () => [],
       };
       return stub as ReturnType<typeof orig>;

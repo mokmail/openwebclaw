@@ -25,7 +25,7 @@ OpenWebClaw is a fully re‑imagined, front‑end‑native cousin of [NanoClaw](
 - **Per‑group workspaces** using OPFS (browser file system) for isolated data
 - **IndexedDB storage** for messages, settings, sessions, tasks, and more
 - **Cron‑style task scheduler** with notifications and durable state
-- **Memory persistence** stored in `CLAUDE.md` and re‑loaded on each conversation
+- **Memory persistence** stored in `memory.md` and re‑loaded on each conversation
 - **Optional WebVM** (v86 + Alpine Linux) for running shell tools in a Linux environment
 - **Encrypts sensitive data** (API keys, tokens) with AES‑256‑GCM
 - **Works offline/air‑gapped** after initial load; only external request is AI provider API
@@ -106,7 +106,7 @@ npm run preview      # run production build locally
 | `javascript` | Evaluates arbitrary JS in the worker sandbox. Faster than `bash` and ideal for data transformation, HTTP calls, or invoking `fetch_url` without CORS limitations. |
 | `read_file` / `write_file` / `list_files` | Manipulate files stored in OPFS. Persistent across reloads and available to every tool. Enables the agent to maintain documents, logs, or codebases. |
 | `fetch_url` | Perform network requests through the browser's `fetch` API. Respects CORS. Used for scraping, web APIs, or downloading assets. |
-| `update_memory` | Append text to the group's `CLAUDE.md` memory file. Automatically loaded at the start of every conversation, providing persistent context. |
+| `update_memory` | Update the group's `memory.md` file. Automatically loaded at the start of every conversation, providing persistent context. Use `read_memory` to check current content. |
 | `create_task` | Schedule a recurring task using cron syntax. Tasks run in the background (while the tab is open) and can generate messages or invoke tools. |
 
 > 🔧 The agent can chain tools: e.g. `bash` produces a file, then `read_file` returns its contents, which the model can summarize.

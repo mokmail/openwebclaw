@@ -11,7 +11,7 @@
 
 import type { WorkerInbound, WorkerOutbound, InvokePayload, CompactPayload, ConversationMessage, ThinkingLogEntry, TokenUsage } from './types.js';
 import { TOOL_DEFINITIONS } from './tools.js';
-import { ANTHROPIC_API_URL, ANTHROPIC_API_VERSION, FETCH_MAX_RESPONSE } from './config.js';
+import { ANTHROPIC_API_URL, ANTHROPIC_API_VERSION, FETCH_MAX_RESPONSE, MEMORY_FILE } from './config.js';
 import { readGroupFile, writeGroupFile, listGroupFiles } from './storage.js';
 import { executeShell } from './shell.js';
 import { ulid } from './ulid.js';
@@ -385,9 +385,33 @@ async function executeTool(
         return status + body.slice(0, FETCH_MAX_RESPONSE) + extra;
       }
 
-      case 'update_memory':
-        await writeGroupFile(groupId, 'CLAUDE.md', input.content as string);
+      case 'read_memory': {
+        try {
+          const content = await readGroupFile(groupId, MEMORY_FILE);
+          return content || '(Memory file is empty)';
+        } catch {
+          return '(No memory file exists yet. Use update_memory to create one.)';
+        }
+      }
+
+      case 'update_memory': {
+        const mode = (input.mode as string) || 'replace';
+        const newContent = input.content as string;
+
+        if (mode === 'append') {
+          let existing = '';
+          try {
+            existing = await readGroupFile(groupId, MEMORY_FILE);
+          } catch {
+            // No existing file
+          }
+          const separator = existing ? '\n\n' : '';
+          await writeGroupFile(groupId, MEMORY_FILE, existing + separator + newContent);
+        } else {
+          await writeGroupFile(groupId, MEMORY_FILE, newContent);
+        }
         return 'Memory updated successfully.';
+      }
 
       case 'create_task': {
         // Post a dedicated message to the main thread to persist the task
@@ -431,6 +455,21 @@ async function executeTool(
 }
 
 // ---------------------------------------------------------------------------
+// Convert Anthropic tools to OpenAI-compatible format for Ollama/OpenWebUI
+// ---------------------------------------------------------------------------
+
+function toOpenAITools(): { type: 'function'; function: { name: string; description: string; parameters: object } }[] {
+  return TOOL_DEFINITIONS.map(tool => ({
+    type: 'function' as const,
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.input_schema,
+    },
+  }));
+}
+
+// ---------------------------------------------------------------------------
 // Open WebUI provider handler
 // ---------------------------------------------------------------------------
 
@@ -444,7 +483,8 @@ async function handleOpenWebUIInvoke(
   apiKey: string
 ): Promise<void> {
   try {
-    const openAI_messages = [
+    type OpenAIMessage = { role: string; content: string | null; tool_calls?: { id: string; type: string; function: { name: string; arguments: string } }[] };
+    const openAIMessages: OpenAIMessage[] = [
       { role: 'system', content: systemPrompt },
       ...messages.map((m) => ({
         role: m.role,
@@ -452,33 +492,128 @@ async function handleOpenWebUIInvoke(
       })),
     ];
 
-    log(groupId, 'api-call', `OpenWebUI API Call`, `${openAI_messages.length} messages`);
+    const tools = toOpenAITools();
+    let iterations = 0;
+    const maxIterations = 25;
 
-    const res = await fetch(`${openWebUIUrl}/api/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: openAI_messages,
-        max_tokens: maxTokens,
-      }),
-    });
+    while (iterations < maxIterations) {
+      iterations++;
 
-    if (!res.ok) {
-      const errBody = await res.text();
-      throw new Error(`OpenWebUI API error ${res.status}: ${errBody}`);
+      log(groupId, 'api-call', `OpenWebUI call #${iterations}`, `${openAIMessages.length} messages`);
+
+      const res = await fetch(`${openWebUIUrl}/api/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: openAIMessages,
+          max_tokens: maxTokens,
+          tools,
+        }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        throw new Error(`OpenWebUI API error ${res.status}: ${errBody}`);
+      }
+
+      const result = await res.json();
+      const message = result.choices?.[0]?.message;
+
+      if (!message) {
+        throw new Error('No message in response');
+      }
+
+      // Emit token usage if available
+      if (result.usage) {
+        post({
+          type: 'token-usage',
+          payload: {
+            groupId,
+            inputTokens: result.usage.prompt_tokens || 0,
+            outputTokens: result.usage.completion_tokens || 0,
+            cacheReadTokens: 0,
+            cacheCreationTokens: 0,
+            contextLimit: getContextLimit(model),
+          },
+        });
+      }
+
+      const toolCalls = message.tool_calls;
+
+      if (toolCalls && toolCalls.length > 0) {
+        // Execute tool calls
+        const toolResults: { tool_call_id: string; role: string; content: string }[] = [];
+
+        for (const tc of toolCalls) {
+          const toolName = tc.function.name;
+          // Arguments can be a string or already an object
+          const toolArgs = typeof tc.function.arguments === 'string'
+            ? JSON.parse(tc.function.arguments)
+            : tc.function.arguments;
+
+          const inputPreview = JSON.stringify(toolArgs);
+          const inputShort = inputPreview.length > 300 ? inputPreview.slice(0, 300) + '…' : inputPreview;
+          log(groupId, 'tool-call', `Tool: ${toolName}`, inputShort);
+
+          post({
+            type: 'tool-activity',
+            payload: { groupId, tool: toolName, status: 'running' },
+          });
+
+          const output = await executeTool(toolName, toolArgs, groupId);
+
+          const outputStr = typeof output === 'string' ? output : JSON.stringify(output);
+          const outputShort = outputStr.length > 500 ? outputStr.slice(0, 500) + '…' : outputStr;
+          log(groupId, 'tool-result', `Result: ${toolName}`, outputShort);
+
+          post({
+            type: 'tool-activity',
+            payload: { groupId, tool: toolName, status: 'done' },
+          });
+
+          toolResults.push({
+            tool_call_id: tc.id,
+            role: 'tool',
+            content: outputStr.slice(0, 100_000),
+          });
+        }
+
+        // Add assistant message with tool_calls and tool results to conversation
+        openAIMessages.push({
+          role: 'assistant',
+          content: message.content || null,
+          tool_calls: toolCalls,
+        });
+
+        for (const tr of toolResults) {
+          openAIMessages.push(tr as OpenAIMessage);
+        }
+
+        // Re-signal typing between tool iterations
+        post({ type: 'typing', payload: { groupId } });
+      } else {
+        // No tool calls - return final response
+        const responseText = message.content || '';
+        const preview = responseText.length > 200 ? responseText.slice(0, 200) + '…' : responseText;
+        log(groupId, 'text', 'Response', preview);
+
+        post({ type: 'response', payload: { groupId, text: responseText || '(no response)' } });
+        return;
+      }
     }
 
-    const result = await res.json();
-    const responseText = result.choices?.[0]?.message?.content || '';
-
-    const preview = responseText.length > 200 ? responseText.slice(0, 200) + '…' : responseText;
-    log(groupId, 'text', 'Response', preview);
-
-    post({ type: 'response', payload: { groupId, text: responseText } });
+    // Max iterations reached
+    post({
+      type: 'response',
+      payload: {
+        groupId,
+        text: '⚠️ Reached maximum tool-use iterations (25). Stopping to avoid excessive API usage.',
+      },
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     post({ type: 'error', payload: { groupId, error: message } });
@@ -498,17 +633,19 @@ async function handleOllamaInvoke(
   ollamaUrl: string
 ): Promise<void> {
   try {
+    type OllamaMessage = { role: string; content: string; tool_calls?: { id: string; function: { name: string; arguments: string } }[] };
     // Convert messages to Ollama format
-    const ollamaMessages: { role: string; content: string }[] = [
+    const ollamaMessages: OllamaMessage[] = [
       { role: 'system', content: systemPrompt },
       ...messages.map(m => ({
-        role: m.role === 'assistant' ? 'assistant' : 'user',
+        role: m.role,
         content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
       })),
     ];
 
     // Clean up ollamaUrl in case the user provided /api/tags or /api/models
     const baseUrl = ollamaUrl.replace(/\/api\/(tags|models)\/?$/, '').replace(/\/+$/, '');
+    const tools = toOpenAITools();
 
     let iterations = 0;
     const maxIterations = 25;
@@ -525,6 +662,7 @@ async function handleOllamaInvoke(
           model,
           messages: ollamaMessages,
           stream: false,
+          tools,
           options: { num_predict: maxTokens },
         }),
       });
@@ -535,10 +673,11 @@ async function handleOllamaInvoke(
       }
 
       const result = await res.json();
+      const message = result.message;
 
-      const responseText = result.message?.content || '';
-      // Ollama may supply a `done` flag but we don't rely on it here
-      // const done = result.done || false;
+      if (!message) {
+        throw new Error('No message in response');
+      }
 
       // Emit token usage if available
       if (typeof result.prompt_eval_count === 'number') {
@@ -555,47 +694,79 @@ async function handleOllamaInvoke(
         });
       }
 
-      // Log the response
-      const preview = responseText.length > 200 ? responseText.slice(0, 200) + '…' : responseText;
-      log(groupId, 'text', 'Response', preview);
+      const toolCalls = message.tool_calls;
 
-      post({ type: 'response', payload: { groupId, text: responseText } });
+      if (toolCalls && toolCalls.length > 0) {
+        // Execute tool calls
+        const toolResults: { role: string; content: string }[] = [];
 
-      // Detect manual minimax tool calls just like Anthropic branch
-      const manual = responseText.match(/minimax:tool_call\s+(https?:\/\/\S+)/i);
-      if (manual) {
-        const url = manual[1];
-        try {
-          const r2 = await fetch(url);
-          const txt = await r2.text();
-          let extra = txt;
-          try {
-            const obj = JSON.parse(txt);
-            if (obj && Array.isArray(obj.prices)) {
-              const vals: number[] = obj.prices
-                .map((p: any) => (Array.isArray(p) ? Number(p[1]) : NaN))
-                .filter((n: number) => !isNaN(n));
-              if (vals.length) extra += '\n\nSparkline: ' + makeSparkline(vals);
-            }
-          } catch {}
-          post({ type: 'response', payload: { groupId, text: `[Tool fetch result from ${url}]:\n${extra}` } });
-        } catch (err) {
-          post({ type: 'response', payload: { groupId, text: `[Tool fetch error]: ${err}` } });
+        for (const tc of toolCalls) {
+          const toolName = tc.function.name;
+          // Arguments can be a string or already an object
+          const toolArgs = typeof tc.function.arguments === 'string'
+            ? JSON.parse(tc.function.arguments)
+            : tc.function.arguments;
+
+          const inputPreview = JSON.stringify(toolArgs);
+          const inputShort = inputPreview.length > 300 ? inputPreview.slice(0, 300) + '…' : inputPreview;
+          log(groupId, 'tool-call', `Tool: ${toolName}`, inputShort);
+
+          post({
+            type: 'tool-activity',
+            payload: { groupId, tool: toolName, status: 'running' },
+          });
+
+          const output = await executeTool(toolName, toolArgs, groupId);
+
+          const outputStr = typeof output === 'string' ? output : JSON.stringify(output);
+          const outputShort = outputStr.length > 500 ? outputStr.slice(0, 500) + '…' : outputStr;
+          log(groupId, 'tool-result', `Result: ${toolName}`, outputShort);
+
+          post({
+            type: 'tool-activity',
+            payload: { groupId, tool: toolName, status: 'done' },
+          });
+
+          toolResults.push({
+            role: 'tool',
+            content: outputStr.slice(0, 100_000),
+          });
         }
+
+        // Add assistant message with tool_calls and tool results to conversation
+        ollamaMessages.push({
+          role: 'assistant',
+          content: message.content || '',
+          tool_calls: toolCalls,
+        });
+
+        for (const tr of toolResults) {
+          ollamaMessages.push(tr);
+        }
+
+        // Re-signal typing between tool iterations
+        post({ type: 'typing', payload: { groupId } });
+      } else {
+        // No tool calls - return final response
+        const responseText = message.content || '';
+
+        // Log the response
+        const preview = responseText.length > 200 ? responseText.slice(0, 200) + '…' : responseText;
+        log(groupId, 'text', 'Response', preview);
+
+        post({ type: 'response', payload: { groupId, text: responseText || '(no response)' } });
+        return;
       }
-
-      break; // Ollama handler currently only issues one request per invoke
     }
 
-    if (iterations >= maxIterations) {
-      post({
-        type: 'response',
-        payload: {
-          groupId,
-          text: '⚠️ Reached maximum iterations (25). Stopping.',
-        },
-      });
-    }
+    // Max iterations reached
+    post({
+      type: 'response',
+      payload: {
+        groupId,
+        text: '⚠️ Reached maximum tool-use iterations (25). Stopping to avoid excessive API usage.',
+      },
+    });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     post({ type: 'error', payload: { groupId, error: message } });

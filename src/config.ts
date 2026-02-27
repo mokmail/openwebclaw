@@ -58,6 +58,9 @@ export const OPFS_ROOT = 'openwebclaw';
 /** Default group for browser chat */
 export const DEFAULT_GROUP_ID = 'br:main';
 
+/** Memory file name */
+export const MEMORY_FILE = 'memory.md';
+
 /** Config keys */
 export const CONFIG_KEYS = {
   ANTHROPIC_API_KEY: 'anthropic_api_key',
@@ -77,10 +80,7 @@ export const CONFIG_KEYS = {
   OLLAMA_URL: 'ollama_url',
   OPENWEBUI_URL: 'openwebui_url',
   OPENWEBUI_API_KEY: 'openwebui_api_key',
-  // Removed Matrix integration
-  // MATRIX_HOMESERVER: 'matrix_homeserver',
-  // MATRIX_ACCESS_TOKEN: 'matrix_access_token',
-  // MATRIX_USER_ID: 'matrix_user_id',
+
 } as const;
 
 /** Provider types */
@@ -90,7 +90,7 @@ export type Provider = 'anthropic' | 'ollama' | 'openwebui';
 export const DEFAULT_PROVIDER: Provider = 'anthropic';
 
 /** Ollama default URL */
-export const DEFAULT_OLLAMA_URL = '/api/ollama';
+export const DEFAULT_OLLAMA_URL = 'http://localhost:11434';
 
 /** OpenWebUI default URL */
 export const DEFAULT_OPENWEBUI_URL = '/api/openwebui';

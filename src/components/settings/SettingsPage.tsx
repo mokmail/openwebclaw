@@ -83,6 +83,7 @@ export function SettingsPage() {
 
   // Ollama URL
   const [ollamaUrl, setOllamaUrl] = useState(orch.getOllamaUrl());
+  const [ollamaUrlSaved, setOllamaUrlSaved] = useState(false);
 
   // OpenWebUI
   const [openWebUIModels, setOpenWebUIModels] = useState<{ value: string; label: string }[]>([]);
@@ -112,6 +113,7 @@ export function SettingsPage() {
   const [storageUsage, setStorageUsage] = useState(0);
   const [storageQuota, setStorageQuota] = useState(0);
   const [isPersistent, setIsPersistent] = useState(false);
+  const [storageLoading, setStorageLoading] = useState(false);
 
   // Theme
   const { theme, setTheme } = useThemeStore();
@@ -267,9 +269,10 @@ export function SettingsPage() {
     setOllamaModelsLoading(false);
   }
 
-  async function handleOllamaUrlChange(value: string) {
-    setOllamaUrl(value);
-    await orch.setOllamaUrl(value);
+  async function handleOllamaUrlSave() {
+    await orch.setOllamaUrl(ollamaUrl.trim());
+    setOllamaUrlSaved(true);
+    setTimeout(() => setOllamaUrlSaved(false), 2000);
     loadOllamaModels();
   }
 
@@ -333,8 +336,19 @@ export function SettingsPage() {
   // matrix removed
 
   async function handleRequestPersistent() {
-    const granted = await requestPersistentStorage();
-    setIsPersistent(granted);
+    setStorageLoading(true);
+    try {
+      const granted = await requestPersistentStorage();
+      setIsPersistent(granted);
+      if (!granted) {
+        // Re-check persistence status in case browser granted it
+        if (navigator.storage?.persisted) {
+          setIsPersistent(await navigator.storage.persisted());
+        }
+      }
+    } finally {
+      setStorageLoading(false);
+    }
   }
 
   const storagePercent = storageQuota > 0 ? (storageUsage / storageQuota) * 100 : 0;
@@ -484,16 +498,38 @@ export function SettingsPage() {
       {provider === 'ollama' && (
         <SectionCard title="Ollama URL" icon={Globe}
         >
-          <input
-            type="text"
-            className="input input-bordered input-sm w-full font-mono"
-            placeholder="/api/ollama"
-            value={ollamaUrl}
-            onChange={(e) => setOllamaUrl(e.target.value)}
-            onBlur={() => handleOllamaUrlChange(ollamaUrl)}
-          />
-          <p className="text-xs text-base-content/50">
-            URL where Ollama is running. Default: /api/ollama
+          <div className="flex gap-2">
+            <input
+              type="text"
+              className="input input-bordered input-sm flex-1 font-mono"
+              placeholder="http://localhost:11434"
+              value={ollamaUrl}
+              onChange={(e) => setOllamaUrl(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleOllamaUrlSave()}
+            />
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={handleOllamaUrlSave}
+              disabled={!ollamaUrl.trim() || ollamaModelsLoading}
+            >
+              {ollamaModelsLoading ? (
+                <span className="loading loading-spinner loading-xs" />
+              ) : (
+                <Zap className="w-4 h-4" />
+              )}
+              Connect
+            </button>
+          </div>
+          {ollamaUrlSaved && (
+            <span className="text-base-content text-sm flex items-center gap-1 mt-2 animate-in fade-in">
+              <Check className="w-4 h-4" /> Connected
+            </span>
+          )}
+          {ollamaError && (
+            <p className="text-xs text-error mt-2">{ollamaError}</p>
+          )}
+          <p className="text-xs text-base-content/50 mt-2">
+            URL where Ollama is running. Default: http://localhost:11434
             <br />
             <span className="text-base-content/70">Note: If running locally, ensure you start Ollama with <code className="bg-base-300 px-1 rounded">OLLAMA_ORIGINS="*"</code> to avoid CORS errors.</span>
           </p>
@@ -757,11 +793,17 @@ export function SettingsPage() {
 
           {!isPersistent ? (
             <button
+              type="button"
               className="btn btn-outline btn-sm w-full sm:w-auto"
               onClick={handleRequestPersistent}
+              disabled={storageLoading}
             >
-              <Lock className="w-4 h-4 mr-2" />
-              Request Persistent Storage
+              {storageLoading ? (
+                <span className="loading loading-spinner loading-xs" />
+              ) : (
+                <Lock className="w-4 h-4 mr-2" />
+              )}
+              {storageLoading ? 'Requesting...' : 'Request Persistent Storage'}
             </button>
           ) : (
             <div className="badge badge-outline badge-lg gap-2 py-3">
