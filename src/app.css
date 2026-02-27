@@ -1,0 +1,74 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: light --default, dark --prefersdark;
+}
+@plugin "@tailwindcss/typography";
+
+/* ---- Full-height app shell ---- */
+@layer base {
+  html, body, #app {
+    height: 100%;
+    height: 100dvh;
+    width: 100%;
+    background-color: var(--color-base-100);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* ---- Thin scrollbar (OpenWebUI style) ---- */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+}
+
+/* ---- Chat textarea auto-sizing ---- */
+.chat-textarea {
+  field-sizing: content;
+  min-height: 2.5rem;
+  max-height: 12rem;
+  resize: none;
+}
+
+/* ---- iOS safe area ---- */
+@supports (padding: env(safe-area-inset-top)) {
+  .safe-area-top { padding-top: env(safe-area-inset-top); }
+  .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+/* ---- File viewer full-screen on mobile ---- */
+@media (max-width: 640px) {
+  .file-viewer-modal .modal-box {
+    @apply w-full h-full max-w-full max-h-full rounded-none;
+  }
+}
+
+/* ---- Subtle button transitions ---- */
+.btn {
+  transition: background-color 0.15s ease, opacity 0.15s ease;
+}

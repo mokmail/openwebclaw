@@ -1,0 +1,19 @@
+# ---------------------------------------------------------------------------
+# OpenWebClaw - Docker Compose Override (Development)
+# ---------------------------------------------------------------------------
+# This file is automatically loaded by docker compose alongside docker-compose.yml
+# Use it for local development overrides
+# ---------------------------------------------------------------------------
+
+services:
+  openwebclaw:
+    # Development mode: mount source code for hot reload
+    volumes:
+      - .:/app:ro
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - DOCKER_ENV=true
+    # Override command for development (if needed)
+    # command: npm run dev
+
