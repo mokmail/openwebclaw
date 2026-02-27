@@ -337,9 +337,20 @@ export function HelpPage() {
         </Section>
 
         {/* Footer */}
-        <p className="text-center text-xs text-base-content/30 pt-4 pb-8">
-          OpenWebClaw — browser-native personal AI, zero infrastructure.
-        </p>
+        <div className="text-center text-xs text-base-content/30 pt-4 pb-8 space-y-1.5">
+          <p>OpenWebClaw — browser-native personal AI, zero infrastructure.</p>
+          <p>
+            Questions or feedback?{' '}
+            <a
+              href="https://kmail.at"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline underline-offset-2 hover:text-base-content/60 transition-colors"
+            >
+              kmail.at
+            </a>
+          </p>
+        </div>
       </div>
     </div>
   );
