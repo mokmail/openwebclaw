@@ -1,9 +1,9 @@
 // ---------------------------------------------------------------------------
-// OpenWebClaw — Chat actions (Compact + New Session)
+// OpenWebClaw — Chat actions (Minimize Overhead + Clean)
 // ---------------------------------------------------------------------------
 
 import { useState } from 'react';
-import { Package, RefreshCw } from 'lucide-react';
+import { Minimize2, Eraser } from 'lucide-react';
 import { useOrchestratorStore } from '../../stores/orchestrator-store.js';
 
 interface Props {
@@ -32,14 +32,14 @@ export function ChatActions({ disabled }: Props) {
           disabled={disabled}
           onClick={() => setConfirmAction('compact')}
         >
-          <Package className="w-3.5 h-3.5" /> Compact
+          <Minimize2 className="w-3.5 h-3.5" /> Minimize Overhead
         </button>
         <button
           className="btn btn-ghost btn-xs gap-1.5 text-base-content/50 hover:text-base-content"
           disabled={disabled}
           onClick={() => setConfirmAction('new-session')}
         >
-          <RefreshCw className="w-3.5 h-3.5" /> New Session
+          <Eraser className="w-3.5 h-3.5" /> Clean
         </button>
       </div>
 
@@ -48,7 +48,7 @@ export function ChatActions({ disabled }: Props) {
         <dialog className="modal modal-open">
           <div className="modal-box max-w-sm border border-base-300 shadow-xl rounded-2xl">
             <h3 className="font-semibold text-lg">
-              {confirmAction === 'compact' ? 'Compact Context' : 'New Session'}
+              {confirmAction === 'compact' ? 'Minimize Overhead' : 'Clean'}
             </h3>
             <p className="py-4 text-base-content/70 text-sm">
               {confirmAction === 'compact'
@@ -64,11 +64,11 @@ export function ChatActions({ disabled }: Props) {
               </button>
               <button
                 className={`btn ${
-                  confirmAction === 'new-session' ? 'btn-error' : 'btn-primary'
+                  confirmAction === 'new-session' ? 'btn-error' : 'btn-outline'
                 }`}
                 onClick={handleConfirm}
               >
-                {confirmAction === 'compact' ? 'Compact' : 'Clear & Start New'}
+                {confirmAction === 'compact' ? 'Minimize' : 'Clear & Start New'}
               </button>
             </div>
           </div>

@@ -35,7 +35,10 @@ interface OrchestratorStoreState {
 
 let orchestratorInstance: Orchestrator | null = null;
 
-export function getOrchestrator(): Orchestrator {
+// `getOrchestrator` is exported as a `let` so that it can be
+// replaced at runtime via `setGetOrchestrator`. Consumers should
+// never mutate the import directly (that's illegal under ES modules).
+export let getOrchestrator: () => Orchestrator = () => {
   if (!orchestratorInstance) {
     // return a minimal stub that satisfies callers but does nothing.
     // This prevents hard errors when components request the orchestrator
@@ -54,7 +57,13 @@ export function getOrchestrator(): Orchestrator {
     };
     return stub as Orchestrator;
   }
-  return orchestratorInstance;
+  return orchestratorInstance as Orchestrator;
+};
+
+// Allows other modules to wrap or replace the getter without mutating
+// the import binding directly.
+export function setGetOrchestrator(fn: typeof getOrchestrator) {
+  getOrchestrator = fn;
 }
 
 export const useOrchestratorStore = create<OrchestratorStoreState>((set, get) => ({

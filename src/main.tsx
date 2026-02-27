@@ -17,15 +17,15 @@ if ('serviceWorker' in navigator) {
 }
 
 // Monkey-patch getOrchestrator to avoid crashes when called before
-// the orchestrator has been initialized. Even if an old bundle with a
-// throwing implementation is cached, this wrapper will catch the error
-// and supply a harmless stub.
-import * as orchStore from './stores/orchestrator-store.js';
+// the orchestrator has been initialized. The original approach mutated
+// the imported binding, which violates ES module semantics and breaks
+// esbuild. Instead we expose a setter in the store module.
+import { getOrchestrator, setGetOrchestrator } from './stores/orchestrator-store.js';
 import { DEFAULT_MODEL, DEFAULT_PROVIDER, DEFAULT_OLLAMA_URL } from './config.js';
 
 {
-  const orig = orchStore.getOrchestrator;
-  (orchStore as any).getOrchestrator = () => {
+  const orig = getOrchestrator;
+  setGetOrchestrator(() => {
     try {
       return orig();
     } catch (err) {
@@ -43,7 +43,7 @@ import { DEFAULT_MODEL, DEFAULT_PROVIDER, DEFAULT_OLLAMA_URL } from './config.js
       };
       return stub as ReturnType<typeof orig>;
     }
-  };
+  });
 }
 
 const root = document.getElementById('app');

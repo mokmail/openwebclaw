@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { Outlet, NavLink, useLocation } from 'react-router';
-import { MessageSquare, FolderOpen, Clock, Settings, Menu, Plus, PanelLeftClose, PanelLeftOpen, LogOut } from 'lucide-react';
+import { MessageSquare, FolderOpen, Clock, Settings, HelpCircle, Menu, Plus, PanelLeftClose, PanelLeftOpen, LogOut } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle.js';
 import { FileViewerModal } from '../files/FileViewerModal.js';
 import { useFileViewerStore } from '../../stores/file-viewer-store.js';
@@ -15,6 +15,7 @@ const navItems = [
   { to: '/files', label: 'Workspace', icon: FolderOpen },
   { to: '/tasks', label: 'Tasks', icon: Clock },
   { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/help', label: 'Help', icon: HelpCircle },
 ] as const;
 
 export function Layout() {

@@ -41,27 +41,17 @@ function SectionCard({
   children,
   title,
   icon: Icon,
-  color = 'primary',
   className = ''
 }: {
   children: React.ReactNode;
   title: string;
   icon: React.ElementType;
-  color?: 'primary' | 'info' | 'success' | 'warning' | 'error';
   className?: string;
 }) {
-  const iconColors = {
-    primary: 'bg-base-200 text-base-content',
-    info: 'bg-base-200 text-base-content',
-    success: 'bg-base-200 text-base-content',
-    warning: 'bg-base-200 text-base-content',
-    error: 'bg-base-200 text-base-content',
-  };
-
   return (
     <div className={`rounded-xl bg-base-100 border border-base-300/50 overflow-hidden ${className}`}>
       <div className="px-5 py-4 border-b border-base-300/50 flex items-center gap-3">
-        <div className={`w-8 h-8 rounded-lg ${iconColors[color]} flex items-center justify-center`}>
+        <div className="w-8 h-8 rounded-lg bg-base-200 text-base-content flex items-center justify-center">
           <Icon className="w-4 h-4" />
         </div>
         <h3 className="font-semibold text-base">{title}</h3>
@@ -362,13 +352,13 @@ export function SettingsPage() {
         </div>
       </div>
       {!ready && (
-        <div className="alert alert-info mb-4">
+        <div className="alert bg-base-200 border border-base-300 text-base-content mb-4">
           <span>Initializing backend&nbsp;— some fields may be unavailable.</span>
         </div>
       )}
 
       {/* Theme */}
-      <SectionCard title="Appearance" icon={Palette} color="primary">
+      <SectionCard title="Appearance" icon={Palette}>
         <fieldset className="fieldset">
           <legend className="fieldset-legend text-sm">Theme</legend>
           <div className="grid grid-cols-3 gap-2">
@@ -376,7 +366,7 @@ export function SettingsPage() {
               <button
                 key={t}
                 onClick={() => setTheme(t)}
-                className={`btn btn-sm ${theme === t ? 'btn-primary' : 'btn-ghost bg-base-200/50'}`}
+                className={`btn btn-sm ${theme === t ? 'btn-outline' : 'btn-ghost bg-base-200/50'}`}
               >
                 {t.charAt(0).toUpperCase() + t.slice(1)}
               </button>
@@ -386,15 +376,15 @@ export function SettingsPage() {
       </SectionCard>
 
       {/* Provider */}
-      <SectionCard title="AI Provider" icon={Bot} color="info">
+      <SectionCard title="AI Provider" icon={Bot}>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {PROVIDERS.map((p) => (
             <button
               key={p.value}
               onClick={() => handleProviderChange(p.value)}
-              className={`btn btn-sm justify-start ${provider === p.value ? 'btn-info' : 'btn-ghost bg-base-200/50'}`}
+              className={`btn btn-sm justify-start ${provider === p.value ? 'btn-outline' : 'btn-ghost bg-base-200/50'}`}
             >
-              <Zap className={`w-4 h-4 mr-2 ${provider === p.value ? 'text-white' : 'text-info'}`} />
+              <Zap className={`w-4 h-4 mr-2 ${provider === p.value ? 'text-base-content' : 'text-base-content/70'}`} />
               {p.label}
             </button>
           ))}
@@ -403,7 +393,7 @@ export function SettingsPage() {
 
       {/* API Key (Anthropic only) */}
       {provider === 'anthropic' && (
-        <SectionCard title="Anthropic API Key" icon={KeyRound} color="warning">
+        <SectionCard title="Anthropic API Key" icon={KeyRound}>
           <form onSubmit={(e) => e.preventDefault()} className="flex gap-2">
             <div className="relative flex-1">
               <input
@@ -426,7 +416,7 @@ export function SettingsPage() {
 
           <div className="flex items-center gap-3 mt-3">
             <button
-              className="btn btn-primary btn-sm"
+              className="btn btn-outline btn-sm"
               onClick={handleSaveApiKey}
               disabled={!apiKey.trim()}
             >
@@ -434,7 +424,7 @@ export function SettingsPage() {
               Save Securely
             </button>
             {apiKeySaved && (
-              <span className="text-success text-sm flex items-center gap-1 animate-in fade-in">
+              <span className="text-base-content text-sm flex items-center gap-1 animate-in fade-in">
                 <Check className="w-4 h-4" /> Encrypted &amp; Saved
               </span>
             )}
@@ -447,7 +437,7 @@ export function SettingsPage() {
       )}
 
       {/* Model */}
-      <SectionCard title="Model" icon={Bot} color="primary">
+      <SectionCard title="Model" icon={Bot}>
         <select
           className="select select-bordered select-sm w-full"
           value={model}
@@ -492,7 +482,7 @@ export function SettingsPage() {
 
       {/* Ollama URL (Ollama only) */}
       {provider === 'ollama' && (
-        <SectionCard title="Ollama URL" icon={Globe} color="info"
+        <SectionCard title="Ollama URL" icon={Globe}
         >
           <input
             type="text"
@@ -505,15 +495,14 @@ export function SettingsPage() {
           <p className="text-xs text-base-content/50">
             URL where Ollama is running. Default: /api/ollama
             <br />
-            <span className="text-warning">Note: If running locally, ensure you start Ollama with <code className="bg-base-300 px-1 rounded">OLLAMA_ORIGINS="*"</code> to avoid CORS errors.</span>
+            <span className="text-base-content/70">Note: If running locally, ensure you start Ollama with <code className="bg-base-300 px-1 rounded">OLLAMA_ORIGINS="*"</code> to avoid CORS errors.</span>
           </p>
         </SectionCard>
       )}
 
       {/* OpenWebUI Config */}
       {provider === 'openwebui' && (
-        <SectionCard title="Open WebUI" icon={Server} color="info"
-        >
+        <SectionCard title="Open WebUI" icon={Server}>
           <div className="space-y-4">
             <div>
               <label className="fieldset-legend text-sm mb-2">URL</label>
@@ -553,14 +542,14 @@ export function SettingsPage() {
               </form>
               <div className="flex items-center gap-2 mt-2">
                 <button
-                  className="btn btn-primary btn-sm"
+                  className="btn btn-outline btn-sm"
                   onClick={handleSaveOpenWebUIKey}
                   disabled={!openWebUIKey.trim()}
                 >
                   <Shield className="w-4 h-4 mr-1" /> Save
                 </button>
                 {openWebUIKeySaved && (
-                  <span className="text-success text-sm flex items-center gap-1 animate-in fade-in">
+                  <span className="text-base-content text-sm flex items-center gap-1 animate-in fade-in">
                     <Check className="w-4 h-4" /> Saved
                   </span>
                 )}
@@ -571,13 +560,13 @@ export function SettingsPage() {
       )}
 
       {/* Assistant Name */}
-      <SectionCard title="Assistant Name" icon={MessageSquare} color="primary"
+      <SectionCard title="Assistant Name" icon={MessageSquare}
       >
         <div className="flex gap-2">
           <input
             type="text"
             className="input input-bordered input-sm flex-1"
-            placeholder="Andy"
+            placeholder="Momo"
             value={assistantName}
             onChange={(e) => setAssistantName(e.target.value)}
             onBlur={handleNameSave}
@@ -589,7 +578,7 @@ export function SettingsPage() {
       </SectionCard>
 
       {/* Telegram */}
-      <SectionCard title="Telegram Bot" icon={Smartphone} color="info"
+      <SectionCard title="Telegram Bot" icon={Smartphone}
       >
         <fieldset className="fieldset">
           <legend className="fieldset-legend text-sm">Bot Token</legend>
@@ -619,7 +608,7 @@ export function SettingsPage() {
 
         <div className="flex items-center gap-3">
           <button
-            className="btn btn-primary btn-sm"
+            className="btn btn-outline btn-sm"
             onClick={handleTelegramSave}
             disabled={!telegramToken.trim()}
           >
@@ -627,7 +616,7 @@ export function SettingsPage() {
             Save Telegram Config
           </button>
           {telegramSaved && (
-            <span className="text-success text-sm flex items-center gap-1 animate-in fade-in">
+            <span className="text-base-content text-sm flex items-center gap-1 animate-in fade-in">
               <Check className="w-4 h-4" /> Saved
             </span>
           )}
@@ -635,7 +624,7 @@ export function SettingsPage() {
       </SectionCard>
 
       {/* WhatsApp */}
-      <SectionCard title="WhatsApp Business" icon={MessageCircle} color="success"
+      <SectionCard title="WhatsApp Business" icon={MessageCircle}
       >
         <fieldset className="fieldset">
           <legend className="fieldset-legend text-sm">Phone Number ID</legend>
@@ -699,7 +688,7 @@ export function SettingsPage() {
 
         <div className="flex flex-wrap items-center gap-3">
           <button
-            className="btn btn-success btn-sm"
+            className="btn btn-outline btn-sm"
             onClick={handleWhatsAppSave}
             disabled={!whatsappPhoneNumberId.trim() || !whatsappAccessToken.trim()}
           >
@@ -709,10 +698,10 @@ export function SettingsPage() {
 
           <button
             className={`btn btn-sm ${
-              whatsappTestStatus === 'success' ? 'btn-success' :
-              whatsappTestStatus === 'error' ? 'btn-error' :
+              whatsappTestStatus === 'success' ? 'btn-outline' :
+              whatsappTestStatus === 'error' ? 'btn-outline' :
               whatsappTestStatus === 'testing' ? 'btn-ghost loading' :
-              'btn-outline btn-primary'
+              'btn-outline'
             }`}
             onClick={handleWhatsAppTest}
             disabled={!whatsappPhoneNumberId.trim() || !whatsappAccessToken.trim() || whatsappTestStatus === 'testing'}
@@ -724,14 +713,14 @@ export function SettingsPage() {
           </button>
 
           {whatsappSaved && (
-            <span className="text-success text-sm flex items-center gap-1 animate-in fade-in">
+            <span className="text-base-content text-sm flex items-center gap-1 animate-in fade-in">
               <Check className="w-4 h-4" /> Saved
             </span>
           )}
         </div>
 
         {whatsappTestError && (
-          <div className="alert alert-error alert-sm mt-2">
+          <div className="alert bg-base-200 border border-base-300 text-base-content alert-sm mt-2">
             <span className="text-sm">{whatsappTestError}</span>
           </div>
         )}
@@ -739,7 +728,7 @@ export function SettingsPage() {
         <details className="collapse collapse-arrow bg-base-300/30 rounded-xl mt-2">
           <summary className="collapse-title text-sm font-medium py-3">Setup Instructions</summary>
           <div className="collapse-content text-sm text-base-content/70 space-y-2 pb-4">
-            <p><strong>1.</strong> Go to <a href="https://developers.facebook.com/" target="_blank" rel="noopener" className="link link-primary">Meta Developer Portal</a> and create an app</p>
+            <p><strong>1.</strong> Go to <a href="https://developers.facebook.com/" target="_blank" rel="noopener" className="link link-hover">Meta Developer Portal</a> and create an app</p>
             <p><strong>2.</strong> Add WhatsApp product to your app</p>
             <p><strong>3.</strong> Get Phone Number ID from WhatsApp → API Setup</p>
             <p><strong>4.</strong> Get a temporary Access Token (valid 24h) or set up a permanent one</p>
@@ -750,7 +739,7 @@ export function SettingsPage() {
       </SectionCard>
 
 
-      <SectionCard title="Storage" icon={HardDrive} color="warning"
+      <SectionCard title="Storage" icon={HardDrive}
       >
         <div className="space-y-4">
           <div>
@@ -760,7 +749,7 @@ export function SettingsPage() {
             </div>
             <div className="relative h-3 bg-base-300/50 rounded-full overflow-hidden">
               <div
-                className="absolute inset-y-0 left-0 bg-primary rounded-full transition-all duration-500"
+                className="absolute inset-y-0 left-0 bg-base-content rounded-full transition-all duration-500"
                 style={{ width: `${Math.min(storagePercent, 100)}%` }}
               />
             </div>
@@ -775,7 +764,7 @@ export function SettingsPage() {
               Request Persistent Storage
             </button>
           ) : (
-            <div className="badge badge-success badge-lg gap-2 py-3">
+            <div className="badge badge-outline badge-lg gap-2 py-3">
               <Lock className="w-4 h-4" />
               Persistent storage active
             </div>
@@ -908,25 +897,25 @@ function PasswordSection() {
             onChange={(e) => setConfirmPw(e.target.value)}
           />
           {newPw && confirmPw && newPw !== confirmPw && (
-            <p className="text-xs text-error mt-1.5">Passwords do not match</p>
+            <p className="text-xs text-base-content mt-1.5">Passwords do not match</p>
           )}
         </div>
 
         {/* Error / Success */}
         {error && (
-          <div className="text-sm text-error bg-error/10 border border-error/20 rounded-xl px-4 py-2.5">
+          <div className="text-sm text-base-content bg-base-200 border border-base-300 rounded-xl px-4 py-2.5">
             {error}
           </div>
         )}
         {success && (
-          <div className="text-sm text-success bg-success/10 border border-success/20 rounded-xl px-4 py-2.5 flex items-center gap-2">
+          <div className="text-sm text-base-content bg-base-200 border border-base-300 rounded-xl px-4 py-2.5 flex items-center gap-2">
             <Check className="w-4 h-4" /> Password changed successfully.
           </div>
         )}
 
         <button
           type="submit"
-          className="btn btn-primary btn-sm"
+          className="btn btn-outline btn-sm"
           disabled={!canSubmit}
         >
           {loading ? <span className="loading loading-spinner loading-xs" /> : <Shield className="w-4 h-4" />}

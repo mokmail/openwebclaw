@@ -50,14 +50,14 @@ export default defineConfig(({ mode }) => {
       // In Docker, bind to all interfaces; locally, bind to localhost
       host: isDocker ? '0.0.0.0' : '127.0.0.1',
       port: 5173,
-      allowedHosts: ['artiin.art', 'all', 'localhost', '0.0.0.0', 'synapse'],
+      allowedHosts: ['all', 'localhost', '0.0.0.0', 'synapse'],
       proxy: proxyConfig,
     },
     preview: {
       // Preview server configuration (used by vite preview)
       host: '0.0.0.0',
       port: 4173,
-      allowedHosts: ['artiin.art', 'all', 'localhost', '0.0.0.0'],
+      allowedHosts: ['all', 'localhost', '0.0.0.0'],
     },
     plugins: [
       react(),
