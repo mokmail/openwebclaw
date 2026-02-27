@@ -12,6 +12,7 @@ import { ToolActivity } from './ToolActivity.js';
 import { ActivityLog } from './ActivityLog.js';
 import { ContextBar } from './ContextBar.js';
 import { ChatActions } from './ChatActions.js';
+import { LogBubble } from './LogBubble.js';
 
 const LineGraphIcon = ({ className }: { className?: string }) => (
   <svg
@@ -171,6 +172,12 @@ export function ChatPage() {
 
         <div className="max-w-3xl mx-auto w-full">
           <MessageList messages={messages} />
+
+          {activityLog
+            .filter((e) => e.kind === 'tool-call' || e.kind === 'tool-result' || e.kind === 'api-call')
+            .map((entry, idx) => (
+              <LogBubble key={`${idx}-${entry.timestamp}`} entry={entry} />
+            ))}
 
           {isTyping && <TypingIndicator />}
           {toolActivity && (

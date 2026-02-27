@@ -37,6 +37,43 @@ const PRESETS: SchedulePreset[] = [
   { label: 'Custom (cron)', value: 'custom', description: 'Enter a cron expression' },
 ];
 
+const TASK_TEMPLATES: {
+  title: string;
+  prompt: string;
+  frequency: ScheduleFrequency;
+  hour?: number;
+  minute?: number;
+  dayOfWeek?: number;
+  dayOfMonth?: number;
+}[] = [
+    {
+      title: 'Daily Summary',
+      prompt: 'Summarize my recent conversations from today and update my memory file with any new preferences or important notes.',
+      frequency: 'daily',
+      hour: 22,
+      minute: 0,
+    },
+    {
+      title: 'Hacker News Monitor',
+      prompt: 'Check the top 5 trending stories on Hacker News. If there are any related to AI or Web Development, give me a brief summary of them.',
+      frequency: 'hourly',
+      minute: 0,
+    },
+    {
+      title: 'Crypto Price Watch',
+      prompt: 'Get the current prices of Bitcoin and Ethereum. Report them to me and compare them with the prices from 24 hours ago.',
+      frequency: 'every-30-min',
+    },
+    {
+      title: 'Weekly activity report',
+      prompt: 'Review my activity log for the past week and generate a concise report of the tools used and tasks completed. Save this to a file named weekly_report.md.',
+      frequency: 'weekly',
+      hour: 16,
+      minute: 0,
+      dayOfWeek: 5,
+    },
+  ];
+
 function buildCron(freq: ScheduleFrequency, hour: number, minute: number, dayOfWeek: number, dayOfMonth: number): string {
   switch (freq) {
     case 'every-minute': return '* * * * *';
@@ -142,6 +179,29 @@ export function TasksPage() {
     setLoading(false);
   }, []);
 
+  async function handleCreateTemplate(t: typeof TASK_TEMPLATES[0]) {
+    const schedule = buildCron(
+      t.frequency,
+      t.hour ?? 9,
+      t.minute ?? 0,
+      t.dayOfWeek ?? 1,
+      t.dayOfMonth ?? 1
+    );
+
+    const task: Task = {
+      id: ulid(),
+      groupId: DEFAULT_GROUP_ID,
+      schedule,
+      prompt: t.prompt.trim(),
+      enabled: true,
+      lastRun: null,
+      createdAt: Date.now(),
+    };
+
+    await saveTask(task);
+    loadTasks();
+  }
+
   useEffect(() => {
     loadTasks();
   }, [loadTasks]);
@@ -202,6 +262,28 @@ export function TasksPage() {
         <div className="card card-bordered bg-base-200 mb-6">
           <div className="card-body p-4 sm:p-6 gap-4">
             <h3 className="card-title text-base">Create Scheduled Task</h3>
+
+            {/* Templates */}
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wider opacity-40">Suggestions</span>
+              <div className="flex flex-wrap gap-2">
+                {TASK_TEMPLATES.map((t) => (
+                  <button
+                    key={t.title}
+                    className="btn btn-xs btn-outline btn-ghost border-base-300 normal-case font-normal"
+                    onClick={() => {
+                      setPrompt(t.prompt);
+                      setFrequency(t.frequency);
+                      if (t.hour !== undefined) setHour(t.hour);
+                      if (t.minute !== undefined) setMinute(t.minute);
+                      if (t.dayOfWeek !== undefined) setDayOfWeek(t.dayOfWeek);
+                    }}
+                  >
+                    {t.title}
+                  </button>
+                ))}
+              </div>
+            </div>
 
             {/* Prompt */}
             <div className="form-control">
@@ -380,13 +462,25 @@ export function TasksPage() {
           <span className="loading loading-spinner loading-md" />
         </div>
       ) : tasks.length === 0 ? (
-        <div className="hero py-12">
-          <div className="hero-content text-center">
-            <div>
-              <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              <p>No scheduled tasks</p>
-              <p className="text-xs opacity-60 mt-1">Create a task to run on a schedule</p>
-            </div>
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Clock className="w-12 h-12 mb-4 opacity-20" />
+          <h3 className="text-lg font-semibold">No scheduled tasks</h3>
+          <p className="text-sm opacity-60 mb-8">Create a task to run on a schedule or try a suggestion below.</p>
+
+          <div className="grid gap-3 sm:grid-cols-2 w-full max-w-2xl">
+            {TASK_TEMPLATES.map((t) => (
+              <button
+                key={t.title}
+                onClick={() => handleCreateTemplate(t)}
+                className="flex flex-col items-start p-4 rounded-2xl border border-base-300/50 bg-base-200/50 hover:bg-base-200 transition-all text-left group"
+              >
+                <div className="flex items-center justify-between w-full mb-1">
+                  <span className="font-semibold text-sm">{t.title}</span>
+                  <Plus className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+                <p className="text-xs opacity-50 line-clamp-2">{t.prompt}</p>
+              </button>
+            ))}
           </div>
         </div>
       ) : (

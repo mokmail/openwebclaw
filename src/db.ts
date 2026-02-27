@@ -102,6 +102,12 @@ function txPromiseAll<T>(
 // Messages
 // ---------------------------------------------------------------------------
 
+export function getMessage(id: string): Promise<StoredMessage | undefined> {
+  return txPromise('messages', 'readonly', (store) =>
+    store.get(id),
+  );
+}
+
 export function saveMessage(msg: StoredMessage): Promise<void> {
   return txPromise('messages', 'readwrite', (store) =>
     store.put(msg),
@@ -267,6 +273,36 @@ export function getAllConfig(): Promise<ConfigEntry[]> {
   return txPromise('config', 'readonly', (store) =>
     store.getAll(),
   );
+}
+
+/**
+ * Delete all messages for a given group that occurred after a certain timestamp.
+ */
+export function deleteMessagesAfter(groupId: string, timestamp: number): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = getDb().transaction('messages', 'readwrite');
+    const store = tx.objectStore('messages');
+    const index = store.index('by-group-time');
+    // Start at [groupId, timestamp + 1] to keep the edited message itself
+    const range = IDBKeyRange.lowerBound([groupId, timestamp + 1]);
+    const request = index.openCursor(range);
+
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (cursor) {
+        // Double check group ID because lowerBound with multiple keys can match other groups
+        if (cursor.value.groupId === groupId) {
+          cursor.delete();
+          cursor.continue();
+        } else {
+          resolve();
+        }
+      } else {
+        resolve();
+      }
+    };
+    request.onerror = () => reject(request.error);
+  });
 }
 
 /**

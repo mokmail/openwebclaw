@@ -37,12 +37,14 @@ import {
 import {
   openDatabase,
   saveMessage,
+  getMessage,
   getRecentMessages,
   buildConversationMessages,
   getConfig,
   setConfig,
   saveTask,
   clearGroupMessages,
+  deleteMessagesAfter,
 } from './db.js';
 import { readGroupFile, writeGroupFile, groupFileExists } from './storage.js';
 import { encryptValue, decryptValue } from './crypto.js';
@@ -68,6 +70,8 @@ type EventMap = {
   'session-reset': { groupId: string };
   'context-compacted': { groupId: string; summary: string };
   'token-usage': import('./types.js').TokenUsage;
+  'message-updated': StoredMessage;
+  'messages-deleted-after': { groupId: string; timestamp: number };
 };
 
 type EventCallback<T> = (data: T) => void;
@@ -165,7 +169,7 @@ export class Orchestrator {
     }
 
     // Set up router
-this.router = new Router(this.browserChat, this.telegram, this.whatsapp);
+    this.router = new Router(this.browserChat, this.telegram, this.whatsapp);
 
     // Set up channels
     this.browserChat.onMessage((msg) => this.enqueue(msg));
@@ -436,12 +440,12 @@ This file stores persistent context that the assistant remembers across conversa
       }
 
       // Otherwise attempt common endpoints relative to the base URL.
-      let results = await tryFetch(`${this.ollamaUrl.replace(/\/+$/,'')}/api/models`);
+      let results = await tryFetch(`${this.ollamaUrl.replace(/\/+$/, '')}/api/models`);
       if (results.length > 0) {
         console.log('Fetched Ollama models (/api/models):', results);
         return results;
       }
-      results = await tryFetch(`${this.ollamaUrl.replace(/\/+$/,'')}/api/tags`);
+      results = await tryFetch(`${this.ollamaUrl.replace(/\/+$/, '')}/api/tags`);
       console.log('Fetched Ollama models (fallback /api/tags):', results);
       return results;
     } catch (err) {
@@ -520,6 +524,28 @@ This file stores persistent context that the assistant remembers across conversa
    */
   submitMessage(text: string, groupId?: string): void {
     this.browserChat.submit(text, groupId);
+  }
+
+  /**
+   * Edit an existing message.
+   */
+  async editMessage(messageId: string, newContent: string): Promise<void> {
+    const msg = await getMessage(messageId);
+    if (!msg) {
+      throw new Error(`Message ${messageId} not found`);
+    }
+
+    msg.content = newContent;
+    await saveMessage(msg);
+    this.events.emit('message-updated', msg);
+
+    // If it's a user message, trigger a new response by deleting what follows and re-invoking
+    if (!msg.isFromMe) {
+      await deleteMessagesAfter(msg.groupId, msg.timestamp);
+      this.events.emit('messages-deleted-after', { groupId: msg.groupId, timestamp: msg.timestamp });
+      // Re-invoke the agent. We don't need to save a new trigger message because we just updated this one.
+      await this.invokeAgent(msg.groupId, msg.content);
+    }
   }
 
   /**

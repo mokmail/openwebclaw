@@ -31,6 +31,7 @@ interface OrchestratorStoreState {
   compactContext: () => Promise<void>;
   clearError: () => void;
   loadHistory: () => Promise<void>;
+  editMessage: (messageId: string, text: string) => Promise<void>;
 }
 
 let orchestratorInstance: Orchestrator | null = null;
@@ -45,9 +46,9 @@ export let getOrchestrator: () => Orchestrator = () => {
     // before initialization (e.g. during auth/setup). Methods are no-ops
     // but typed as any since we only call a few of them early.
     const stub: Partial<Orchestrator> = {
-      submitMessage: () => {},
-      newSession: async () => {},
-      compactContext: async () => {},
+      submitMessage: () => { },
+      newSession: async () => { },
+      compactContext: async () => { },
       getAssistantName: () => '',
       isConfigured: () => false,
       getModel: () => DEFAULT_MODEL,
@@ -115,6 +116,15 @@ export const useOrchestratorStore = create<OrchestratorStoreState>((set, get) =>
       console.warn('loadHistory error', err);
     }
   },
+
+  editMessage: async (messageId, text) => {
+    try {
+      const orch = getOrchestrator();
+      await orch.editMessage(messageId, text);
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to edit message' });
+    }
+  },
 }));
 
 /**
@@ -128,6 +138,18 @@ export async function initOrchestratorStore(orch: Orchestrator): Promise<void> {
   // Subscribe to events
   orch.events.on('message', (msg) => {
     store.setState((s) => ({ messages: [...s.messages, msg] }));
+  });
+
+  orch.events.on('message-updated', (msg) => {
+    store.setState((s) => ({
+      messages: s.messages.map((m) => (m.id === msg.id ? msg : m)),
+    }));
+  });
+
+  orch.events.on('messages-deleted-after', ({ groupId, timestamp }) => {
+    store.setState((s) => ({
+      messages: s.messages.filter((m) => m.groupId !== groupId || m.timestamp <= timestamp),
+    }));
   });
 
   orch.events.on('typing', ({ typing }) => {

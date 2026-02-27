@@ -8,10 +8,10 @@ import rehypeRaw from 'rehype-raw';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import { FileText, Bot, User, Copy, Check, Edit2, RefreshCw, ThumbsUp, ThumbsDown } from 'lucide-react';
 import type { StoredMessage } from '../../types.js';
-import { getOrchestrator } from '../../stores/orchestrator-store.js';
+import { useOrchestratorStore } from '../../stores/orchestrator-store.js';
 import { useFileViewerStore } from '../../stores/file-viewer-store.js';
 import { CodeBlock } from './CodeBlock.js';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 // Matches strings that look like file paths (with extension)
 const FILE_PATH_RE = /^[\w./-]+\.\w{1,10}$/;
@@ -64,6 +64,17 @@ export function MessageBubble({ message }: Props) {
   const isAssistant = message.isFromMe;
   const senderName = isAssistant ? getSenderName(message) : 'You';
   const [copied, setCopied] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContent, setEditContent] = useState(message.content);
+  const editMessage = useOrchestratorStore((s) => s.editMessage);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (isEditing && textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.setSelectionRange(textareaRef.current.value.length, textareaRef.current.value.length);
+    }
+  }, [isEditing]);
 
   const handleCopy = async () => {
     try {
@@ -75,16 +86,40 @@ export function MessageBubble({ message }: Props) {
     }
   };
 
+  const handleEdit = () => {
+    setEditContent(message.content);
+    setIsEditing(true);
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    setEditContent(message.content);
+  };
+
+  const handleSave = async () => {
+    if (editContent.trim() && editContent !== message.content) {
+      await editMessage(message.id, editContent);
+    }
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      handleSave();
+    } else if (e.key === 'Escape') {
+      handleCancel();
+    }
+  };
+
   return (
     <div className={`flex w-full py-4 ${isAssistant ? 'bg-base-100' : 'bg-base-100'} group`}>
       <div className="flex w-full max-w-3xl mx-auto px-4 gap-4">
         {/* Avatar */}
         <div className="flex-shrink-0 mt-1">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-            isAssistant
-              ? 'bg-base-content text-base-100'
-              : 'bg-base-300 text-base-content'
-          }`}>
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isAssistant
+            ? 'bg-base-content text-base-100'
+            : 'bg-base-300 text-base-content'
+            }`}>
             {isAssistant ? (
               <Bot className="w-5 h-5" />
             ) : (
@@ -185,13 +220,38 @@ export function MessageBubble({ message }: Props) {
               >
                 {message.content}
               </ReactMarkdown>
+            ) : isEditing ? (
+              <div className="flex flex-col gap-2 w-full">
+                <textarea
+                  ref={textareaRef}
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  className="w-full min-h-[100px] p-3 bg-base-200 border border-base-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm resize-none"
+                  placeholder="Edit your message..."
+                />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleSave}
+                    className="btn btn-primary btn-sm rounded-lg"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={handleCancel}
+                    className="btn btn-ghost btn-sm rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             ) : (
               <div className="whitespace-pre-wrap">{message.content}</div>
             )}
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-1 mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className={`flex items-center gap-1 mt-2 ${isEditing ? 'hidden' : 'opacity-0 group-hover:opacity-100 transition-opacity'}`}>
             {isAssistant ? (
               <>
                 <button
@@ -212,7 +272,11 @@ export function MessageBubble({ message }: Props) {
                 </button>
               </>
             ) : (
-              <button className="p-1.5 text-base-content/50 hover:text-base-content hover:bg-base-200 rounded-md transition-colors" title="Edit">
+              <button
+                onClick={handleEdit}
+                className="p-1.5 text-base-content/50 hover:text-base-content hover:bg-base-200 rounded-md transition-colors"
+                title="Edit"
+              >
                 <Edit2 className="w-4 h-4" />
               </button>
             )}
@@ -240,9 +304,5 @@ function FileLink({ path }: { path: string }) {
 }
 
 function getSenderName(msg: StoredMessage): string {
-  try {
-    return getOrchestrator().getAssistantName();
-  } catch {
-    return msg.sender || 'Assistant';
-  }
+  return msg.sender || 'Assistant';
 }
